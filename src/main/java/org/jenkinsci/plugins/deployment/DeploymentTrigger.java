@@ -1,6 +1,8 @@
 package org.jenkinsci.plugins.deployment;
 
+import com.google.common.base.Function;
 import hudson.Extension;
+import hudson.ExtensionList;
 import hudson.model.AbstractProject;
 import hudson.model.AutoCompletionCandidates;
 import hudson.model.BuildableItem;
@@ -15,10 +17,12 @@ import hudson.triggers.Trigger;
 import hudson.triggers.TriggerDescriptor;
 import jenkins.model.FingerprintFacet;
 import jenkins.model.Jenkins;
+import org.jenkinsci.plugins.deployment.workflowsteps.AwaitDeploymentStepExecution;
 import org.kohsuke.stapler.AncestorInPath;
 import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.QueryParameter;
 
+import javax.annotation.Nonnull;
 import java.io.IOException;
 import java.util.HashSet;
 import java.util.concurrent.ExecutionException;
@@ -34,6 +38,7 @@ import java.util.logging.Logger;
  *
  * @author Kohsuke Kawaguchi
  */
+
 public class DeploymentTrigger extends Trigger<AbstractProject> {
     private final String upstreamJob;
     private final Condition cond;
@@ -68,6 +73,16 @@ public class DeploymentTrigger extends Trigger<AbstractProject> {
                             // pass all the current parameters if we can
                             ParametersAction action = b.getAction(ParametersAction.class);
                             job.scheduleBuild(job.getQuietPeriod(), new UpstreamDeploymentCause(b), action);
+
+                            /*AwaitDeploymentStepExecution.applyAll(AwaitDeploymentStepExecution.class, new Function<AwaitDeploymentStepExecution, Void>() {
+                            @Override public Void apply(@Nonnull AwaitDeploymentStepExecution awaitDeploymentStepExecution) {
+                                if (awaitDeploymentStepExecution.getId()) {
+                                    awaitDeploymentStepExecution.proceed(true);
+                                }
+                                return null;
+                            }
+                            });*/
+
                             return;
                         }
                     }
@@ -103,12 +118,21 @@ public class DeploymentTrigger extends Trigger<AbstractProject> {
                 public void run() {
                     for (AbstractProject<?,?> p : Jenkins.getInstance().getAllItems(AbstractProject.class)) {
                         DeploymentTrigger t = p.getTrigger(DeploymentTrigger.class);
-                        if (t!=null) {
                             t.checkAndFire(facet);
-                        }
                     }
                 }
             });
+            /*POOL.submit(new Runnable() {
+                public void run() {
+                    for (AbstractProject<?,?> p : Jenkins.getInstance().getAllItems(AbstractProject.class)) {
+                        DeploymentTrigger t = p.getTrigger(DeploymentTrigger.class);
+                        if (t!=null) {
+                            t.checkAndFire(facet);
+
+                        }
+                    }
+                }
+            });*/
         }
 
         /**
